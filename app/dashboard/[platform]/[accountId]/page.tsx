@@ -2,12 +2,28 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Heart, MessageCircle, Eye, Trash2, RefreshCw } from "lucide-react";
+import { Trash2, RefreshCw, ExternalLink } from "lucide-react";
 
 import { fetchAccount, fetchSnapshots, deleteAccount, syncAccount } from "@/lib/api/client";
 import { PLATFORM_CONFIG, type Platform } from "@/lib/types";
+
+function getChannelUrl(platform: Platform, username: string, platformAccountId?: string | null): string {
+  switch (platform) {
+    case "youtube":
+      return `https://www.youtube.com/channel/${platformAccountId}`;
+    case "instagram":
+      return `https://www.instagram.com/${username}`;
+    case "tiktok":
+      return `https://www.tiktok.com/@${username}`;
+    case "twitter":
+      return `https://twitter.com/${username}`;
+    case "linkedin":
+      return `https://www.linkedin.com/in/${username}`;
+    default:
+      return "#";
+  }
+}
 import type { Account, FollowerSnapshot, Post } from "@/lib/db/schema";
-import { MetricsCard } from "@/components/dashboard/metrics-card";
 import { FollowerChart } from "@/components/dashboard/follower-chart";
 import { RecentPosts } from "@/components/dashboard/recent-posts";
 import { Button } from "@/components/ui/button";
@@ -91,28 +107,36 @@ export default function AccountPage({ params }: AccountPageProps) {
   return (
     <div className="p-8">
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+        <a
+          href={getChannelUrl(platform, account.username, account.platformAccountId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-4"
+        >
           {account.avatarUrl ? (
             <img
               src={account.avatarUrl}
               alt={account.displayName}
-              className="h-16 w-16 rounded-full"
+              className="h-16 w-16 rounded-full transition-opacity group-hover:opacity-80"
             />
           ) : (
             <div
-              className="flex h-16 w-16 items-center justify-center rounded-full text-2xl text-white"
+              className="flex h-16 w-16 items-center justify-center rounded-full text-2xl text-white transition-opacity group-hover:opacity-80"
               style={{ backgroundColor: platformConfig.color }}
             >
               {account.displayName[0]}
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-bold">{account.displayName}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">{account.displayName}</h1>
+              <ExternalLink className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-50" />
+            </div>
             <p className="text-muted-foreground">
               {platformConfig.label} • @{account.username}
             </p>
           </div>
-        </div>
+        </a>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -130,35 +154,13 @@ export default function AccountPage({ params }: AccountPageProps) {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricsCard
-          title="Followers"
-          value={latestFollowers ?? "-"}
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
-        />
-        <MetricsCard
-          title="Total Likes"
-          value={stats.totalLikes}
-          icon={<Heart className="h-4 w-4 text-muted-foreground" />}
-        />
-        <MetricsCard
-          title="Total Comments"
-          value={stats.totalComments}
-          icon={<MessageCircle className="h-4 w-4 text-muted-foreground" />}
-        />
-        <MetricsCard
-          title="Total Views"
-          value={stats.totalViews}
-          icon={<Eye className="h-4 w-4 text-muted-foreground" />}
-        />
-      </div>
-
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <FollowerChart
           data={followerHistory}
-          color={platformConfig.color}
+          latestFollowers={latestFollowers}
+          totalViews={stats.totalViews}
         />
-        <RecentPosts posts={posts} />
+        <RecentPosts posts={posts} platform={platform} />
       </div>
     </div>
   );

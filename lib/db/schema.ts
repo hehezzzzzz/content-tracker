@@ -18,6 +18,7 @@ export const accounts = pgTable(
     displayName: varchar("display_name", { length: 255 }).notNull(),
     avatarUrl: text("avatar_url"),
     platformAccountId: varchar("platform_account_id", { length: 255 }),
+    totalViews: bigint("total_views", { mode: "number" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

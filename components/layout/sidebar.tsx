@@ -96,10 +96,18 @@ export function Sidebar() {
       <aside className="flex h-screen w-64 flex-col border-r bg-card">
         <div className="flex h-14 items-center border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="text-sm font-bold">CT</span>
-            </div>
-            <span className="font-semibold">Content Tracker</span>
+            <img
+              src="/logo.webp"
+              alt="Content Tracker"
+              className="h-8 w-8 rounded-lg"
+            />
+            <span className="font-semibold">
+              <span className="text-xl font-bold">C</span>
+              <span className="text-sm">ontent</span>
+              {" "}
+              <span className="text-xl font-bold">T</span>
+              <span className="text-sm">racker</span>
+            </span>
           </Link>
         </div>
 

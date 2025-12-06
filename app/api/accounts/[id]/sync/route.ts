@@ -51,12 +51,13 @@ export async function POST(
         count: channel.stats.subscriberCount,
       });
 
-      // Update account info
+      // Update account info including total views
       await db
         .update(accounts)
         .set({
           displayName: channel.title,
           avatarUrl: channel.thumbnailUrl,
+          totalViews: channel.stats.viewCount,
         })
         .where(eq(accounts.id, accountId));
 

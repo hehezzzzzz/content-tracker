@@ -1,16 +1,35 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Heart, MessageCircle, Share2, Eye } from "lucide-react";
+import { Heart, MessageCircle, Share2, Eye, ExternalLink } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Post } from "@/lib/db/schema";
+import type { Platform } from "@/lib/types";
 
 interface RecentPostsProps {
   posts: Post[];
+  platform: Platform;
 }
 
-export function RecentPosts({ posts }: RecentPostsProps) {
+function getPostUrl(platform: Platform, platformPostId: string): string {
+  switch (platform) {
+    case "youtube":
+      return `https://www.youtube.com/watch?v=${platformPostId}`;
+    case "instagram":
+      return `https://www.instagram.com/p/${platformPostId}`;
+    case "tiktok":
+      return `https://www.tiktok.com/video/${platformPostId}`;
+    case "twitter":
+      return `https://twitter.com/i/status/${platformPostId}`;
+    case "linkedin":
+      return `https://www.linkedin.com/feed/update/${platformPostId}`;
+    default:
+      return "#";
+  }
+}
+
+export function RecentPosts({ posts, platform }: RecentPostsProps) {
   if (posts.length === 0) {
     return (
       <Card>
@@ -34,9 +53,12 @@ export function RecentPosts({ posts }: RecentPostsProps) {
       <CardContent>
         <div className="space-y-4">
           {posts.map((post) => (
-            <div
+            <a
               key={post.id}
-              className="flex gap-4 rounded-lg border p-3 transition-colors hover:bg-accent"
+              href={getPostUrl(platform, post.platformPostId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex gap-4 rounded-lg border p-3 transition-colors hover:bg-accent"
             >
               {post.thumbnailUrl && (
                 <img
@@ -46,9 +68,12 @@ export function RecentPosts({ posts }: RecentPostsProps) {
                 />
               )}
               <div className="flex-1 space-y-1">
-                {post.title && (
-                  <p className="line-clamp-1 font-medium">{post.title}</p>
-                )}
+                <div className="flex items-center gap-2">
+                  {post.title && (
+                    <p className="line-clamp-1 font-medium">{post.title}</p>
+                  )}
+                  <ExternalLink className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-50" />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(post.postedAt), {
                     addSuffix: true,
@@ -77,7 +102,7 @@ export function RecentPosts({ posts }: RecentPostsProps) {
                   )}
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </CardContent>

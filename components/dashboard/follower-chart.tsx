@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { format, subDays, subWeeks, subMonths, subYears } from "date-fns";
 
+import { Users, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -53,10 +54,12 @@ function getStartDate(range: TimeRange): Date | null {
 
 interface FollowerChartProps {
   data: FollowerSnapshot[];
+  latestFollowers: number | null;
+  totalViews: number;
 }
 
-export function FollowerChart({ data }: FollowerChartProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>("3m");
+export function FollowerChart({ data, latestFollowers, totalViews }: FollowerChartProps) {
+  const [timeRange, setTimeRange] = useState<TimeRange>("4w");
 
   const chartData = useMemo(() => {
     const startDate = getStartDate(timeRange);
@@ -116,24 +119,51 @@ export function FollowerChart({ data }: FollowerChartProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Follower Growth</CardTitle>
-        <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TIME_RANGE_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+              <Users className="h-5 w-5 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Followers</p>
+              <p className="text-xl font-bold">
+                {latestFollowers?.toLocaleString() ?? "-"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-pink-500/10">
+              <Eye className="h-5 w-5 text-pink-500" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Views</p>
+              <p className="text-xl font-bold">{totalViews.toLocaleString()}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Follower Growth</CardTitle>
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIME_RANGE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>
             <defs>
               <linearGradient id="followerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -184,8 +214,9 @@ export function FollowerChart({ data }: FollowerChartProps) {
               activeDot={{ r: 5, fill: "#F472B6" }}
             />
           </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

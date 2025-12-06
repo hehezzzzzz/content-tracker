@@ -46,7 +46,7 @@ export async function GET(
       totalPosts: allPosts.length,
       totalLikes: allPosts.reduce((sum, p) => sum + p.likes, 0),
       totalComments: allPosts.reduce((sum, p) => sum + p.comments, 0),
-      totalViews: allPosts.reduce((sum, p) => sum + (p.views ?? 0), 0),
+      totalViews: account.totalViews ?? allPosts.reduce((sum, p) => sum + (p.views ?? 0), 0),
     };
 
     return NextResponse.json({

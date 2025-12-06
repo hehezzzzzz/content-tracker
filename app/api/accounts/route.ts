@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
           displayName: channel.title,
           avatarUrl: channel.thumbnailUrl,
           platformAccountId: channel.id,
+          totalViews: channel.stats.viewCount,
         })
         .returning();
 
