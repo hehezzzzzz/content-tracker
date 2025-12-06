@@ -1,6 +1,5 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,12 +11,13 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { XLogo } from "@/components/icons/x-logo";
 
-import { db } from "@/lib/db";
 import { cn } from "@/lib/utils";
-import { PLATFORM_CONFIG, type Platform, type Account } from "@/lib/types";
+import { PLATFORM_CONFIG, type Platform } from "@/lib/types";
+import { fetchAccounts } from "@/lib/api/client";
+import type { Account } from "@/lib/db/schema";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -48,15 +48,28 @@ export function Sidebar() {
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(
     null
   );
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
-  const accounts = useLiveQuery(() => db.accounts.toArray(), []);
+  const loadAccounts = async () => {
+    try {
+      const data = await fetchAccounts();
+      setAccounts(data);
+    } catch (error) {
+      console.error("Failed to load accounts:", error);
+    }
+  };
 
-  const accountsByPlatform = accounts?.reduce(
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  const accountsByPlatform = accounts.reduce(
     (acc, account) => {
-      if (!acc[account.platform]) {
-        acc[account.platform] = [];
+      const platform = account.platform as Platform;
+      if (!acc[platform]) {
+        acc[platform] = [];
       }
-      acc[account.platform].push(account);
+      acc[platform].push(account);
       return acc;
     },
     {} as Record<Platform, Account[]>
@@ -72,6 +85,10 @@ export function Sidebar() {
       }
       return next;
     });
+  };
+
+  const handleAccountAdded = () => {
+    loadAccounts();
   };
 
   return (
@@ -91,7 +108,7 @@ export function Sidebar() {
             {PLATFORMS.map((platform) => {
               const Icon = PLATFORM_ICONS[platform];
               const config = PLATFORM_CONFIG[platform];
-              const platformAccounts = accountsByPlatform?.[platform] ?? [];
+              const platformAccounts = accountsByPlatform[platform] ?? [];
               const isExpanded = expandedPlatforms.has(platform);
 
               return (
@@ -169,6 +186,7 @@ export function Sidebar() {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         defaultPlatform={selectedPlatform}
+        onAccountAdded={handleAccountAdded}
       />
     </>
   );

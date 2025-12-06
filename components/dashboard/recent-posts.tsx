@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Heart, MessageCircle, Share2, Eye } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Post } from "@/lib/types";
+import type { Post } from "@/lib/db/schema";
 
 interface RecentPostsProps {
   posts: Post[];
@@ -63,13 +63,13 @@ export function RecentPosts({ posts }: RecentPostsProps) {
                     <MessageCircle className="h-3 w-3" />
                     {post.comments.toLocaleString()}
                   </span>
-                  {post.shares !== undefined && (
+                  {post.shares != null && (
                     <span className="flex items-center gap-1">
                       <Share2 className="h-3 w-3" />
                       {post.shares.toLocaleString()}
                     </span>
                   )}
-                  {post.views !== undefined && (
+                  {post.views != null && (
                     <span className="flex items-center gap-1">
                       <Eye className="h-3 w-3" />
                       {post.views.toLocaleString()}

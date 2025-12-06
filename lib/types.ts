@@ -11,6 +11,7 @@ export interface Account {
   username: string;
   displayName: string;
   avatarUrl?: string;
+  platformAccountId?: string; // e.g. YouTube channel ID
   createdAt: Date;
 }
 

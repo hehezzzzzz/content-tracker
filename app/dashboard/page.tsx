@@ -1,17 +1,28 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
-import { seedDemoData } from "@/lib/db/seed";
-import { PLATFORM_CONFIG } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { fetchAccounts } from "@/lib/api/client";
+import { PLATFORM_CONFIG, type Platform } from "@/lib/types";
+import type { Account } from "@/lib/db/schema";
 
 export default function DashboardPage() {
-  const accounts = useLiveQuery(() => db.accounts.toArray(), []);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSeedDemo = async () => {
-    await seedDemoData();
-  };
+  useEffect(() => {
+    fetchAccounts()
+      .then(setAccounts)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -20,20 +31,17 @@ export default function DashboardPage() {
         Track your social media content and performance across platforms.
       </p>
 
-      {accounts?.length === 0 && (
+      {accounts.length === 0 && (
         <div className="mt-12 flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
           <h2 className="text-xl font-semibold">No accounts added yet</h2>
           <p className="mt-2 text-center text-muted-foreground">
             Add your first social media account using the sidebar to start
             tracking.
           </p>
-          <Button onClick={handleSeedDemo} variant="outline" className="mt-4">
-            Load Demo Data
-          </Button>
         </div>
       )}
 
-      {accounts && accounts.length > 0 && (
+      {accounts.length > 0 && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((account) => (
             <a
@@ -52,7 +60,7 @@ export default function DashboardPage() {
                   <div
                     className="flex h-10 w-10 items-center justify-center rounded-full text-white"
                     style={{
-                      backgroundColor: PLATFORM_CONFIG[account.platform].color,
+                      backgroundColor: PLATFORM_CONFIG[account.platform as Platform].color,
                     }}
                   >
                     {account.displayName[0]}
@@ -61,7 +69,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="font-medium">{account.displayName}</div>
                   <div className="text-sm text-muted-foreground">
-                    {PLATFORM_CONFIG[account.platform].label} • @{account.username}
+                    {PLATFORM_CONFIG[account.platform as Platform].label} • @{account.username}
                   </div>
                 </div>
               </div>

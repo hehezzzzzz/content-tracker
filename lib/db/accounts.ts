@@ -5,13 +5,15 @@ export async function addAccount(
   platform: Platform,
   username: string,
   displayName: string,
-  avatarUrl?: string
+  avatarUrl?: string,
+  platformAccountId?: string
 ): Promise<number> {
   const id = await db.accounts.add({
     platform,
     username,
     displayName,
     avatarUrl,
+    platformAccountId,
     createdAt: new Date(),
   });
   return id as number;

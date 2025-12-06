@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, Search } from "lucide-react";
 
 import {
   Dialog,
@@ -21,8 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addAccount } from "@/lib/db/accounts";
+import { createAccount, lookupYouTubeChannel } from "@/lib/api/client";
 import { PLATFORM_CONFIG, type Platform } from "@/lib/types";
+import type { YouTubeChannel } from "@/lib/api/youtube";
 
 const PLATFORMS: Platform[] = [
   "youtube",
@@ -36,36 +38,86 @@ interface AddAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultPlatform?: Platform | null;
+  onAccountAdded?: () => void;
 }
 
 export function AddAccountDialog({
   open,
   onOpenChange,
   defaultPlatform,
+  onAccountAdded,
 }: AddAccountDialogProps) {
   const router = useRouter();
   const [platform, setPlatform] = useState<Platform>(
     defaultPlatform ?? "youtube"
   );
   const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // YouTube specific state
+  const [youtubeChannel, setYoutubeChannel] = useState<YouTubeChannel | null>(
+    null
+  );
+
+  const resetForm = () => {
+    setUsername("");
+    setYoutubeChannel(null);
+    setError(null);
+  };
+
+  const handlePlatformChange = (newPlatform: Platform) => {
+    setPlatform(newPlatform);
+    resetForm();
+  };
+
+  const handleLookup = async () => {
+    if (!username.trim()) return;
+
+    setIsLookingUp(true);
+    setError(null);
+    setYoutubeChannel(null);
+
+    try {
+      if (platform === "youtube") {
+        const channel = await lookupYouTubeChannel(username.trim());
+        setYoutubeChannel(channel);
+      } else {
+        setError("Lookup not yet supported for this platform");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to look up account");
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !displayName.trim()) return;
+
+    if (platform === "youtube" && !youtubeChannel) {
+      setError("Please look up the channel first");
+      return;
+    }
 
     setIsSubmitting(true);
+    setError(null);
+
     try {
-      const id = await addAccount(platform, username.trim(), displayName.trim());
+      const account = await createAccount(platform, username.trim());
       onOpenChange(false);
-      setUsername("");
-      setDisplayName("");
-      router.push(`/dashboard/${platform}/${id}`);
+      resetForm();
+      onAccountAdded?.();
+      router.push(`/dashboard/${platform}/${account.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add account");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const showLookup = platform === "youtube";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,10 +133,7 @@ export function AddAccountDialog({
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="platform">Platform</Label>
-              <Select
-                value={platform}
-                onValueChange={(v) => setPlatform(v as Platform)}
-              >
+              <Select value={platform} onValueChange={handlePlatformChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -99,35 +148,71 @@ export function AddAccountDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="username">Username / Handle</Label>
-              <Input
-                id="username"
-                placeholder="@username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
+              <Label htmlFor="username">
+                {platform === "youtube" ? "Channel Handle" : "Username / Handle"}
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="username"
+                  placeholder={platform === "youtube" ? "@channelhandle" : "@username"}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+                {showLookup && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleLookup}
+                    disabled={isLookingUp || !username.trim()}
+                  >
+                    {isLookingUp ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="displayName">Display Name</Label>
-              <Input
-                id="displayName"
-                placeholder="Account name for sidebar"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+
+            {youtubeChannel && (
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={youtubeChannel.thumbnailUrl}
+                    alt={youtubeChannel.title}
+                    className="h-12 w-12 rounded-full"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium">{youtubeChannel.title}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {youtubeChannel.stats.subscriberCount.toLocaleString()} subscribers
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || (showLookup && !youtubeChannel)}
+            >
               {isSubmitting ? "Adding..." : "Add Account"}
             </Button>
           </DialogFooter>

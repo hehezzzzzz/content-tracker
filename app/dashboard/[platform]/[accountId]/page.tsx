@@ -1,13 +1,12 @@
 "use client";
 
-import { use } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Heart, MessageCircle, Eye, Trash2 } from "lucide-react";
+import { Users, Heart, MessageCircle, Eye, Trash2, RefreshCw } from "lucide-react";
 
-import { db } from "@/lib/db";
-import { removeAccount } from "@/lib/db/accounts";
+import { fetchAccount, fetchSnapshots, deleteAccount, syncAccount } from "@/lib/api/client";
 import { PLATFORM_CONFIG, type Platform } from "@/lib/types";
+import type { Account, FollowerSnapshot, Post } from "@/lib/db/schema";
 import { MetricsCard } from "@/components/dashboard/metrics-card";
 import { FollowerChart } from "@/components/dashboard/follower-chart";
 import { RecentPosts } from "@/components/dashboard/recent-posts";
@@ -25,51 +24,61 @@ export default function AccountPage({ params }: AccountPageProps) {
   const router = useRouter();
   const id = parseInt(accountId, 10);
 
-  const account = useLiveQuery(() => db.accounts.get(id), [id]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [latestFollowers, setLatestFollowers] = useState<number | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [stats, setStats] = useState({
+    totalPosts: 0,
+    totalLikes: 0,
+    totalComments: 0,
+    totalViews: 0,
+  });
+  const [followerHistory, setFollowerHistory] = useState<FollowerSnapshot[]>([]);
 
-  const followerHistory = useLiveQuery(async () => {
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-    return db.followerSnapshots
-      .where("accountId")
-      .equals(id)
-      .filter((s) => new Date(s.recordedAt) >= since)
-      .toArray();
+  const loadData = async () => {
+    try {
+      const [accountData, snapshots] = await Promise.all([
+        fetchAccount(id),
+        fetchSnapshots(id, 30),
+      ]);
+      setAccount(accountData.account);
+      setLatestFollowers(accountData.latestFollowers);
+      setPosts(accountData.recentPosts);
+      setStats(accountData.stats);
+      setFollowerHistory(snapshots);
+    } catch (error) {
+      console.error("Failed to load account:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [id]);
-
-  const posts = useLiveQuery(
-    () =>
-      db.posts
-        .where("accountId")
-        .equals(id)
-        .reverse()
-        .sortBy("postedAt")
-        .then((p) => p.slice(0, 10)),
-    [id]
-  );
-
-  const stats = useLiveQuery(async () => {
-    const allPosts = await db.posts.where("accountId").equals(id).toArray();
-    return {
-      totalPosts: allPosts.length,
-      totalLikes: allPosts.reduce((sum, p) => sum + p.likes, 0),
-      totalComments: allPosts.reduce((sum, p) => sum + p.comments, 0),
-      totalViews: allPosts.reduce((sum, p) => sum + (p.views ?? 0), 0),
-    };
-  }, [id]);
-
-  const latestFollowers = followerHistory?.length
-    ? followerHistory[followerHistory.length - 1]?.count
-    : null;
 
   const handleDelete = async () => {
     if (confirm("Are you sure you want to remove this account?")) {
-      await removeAccount(id);
+      await deleteAccount(id);
       router.push("/dashboard");
     }
   };
 
-  if (!account) {
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncAccount(id);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to sync:", error);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (loading || !account) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
@@ -104,10 +113,21 @@ export default function AccountPage({ params }: AccountPageProps) {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleDelete}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          Remove
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDelete}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Remove
+          </Button>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -118,27 +138,27 @@ export default function AccountPage({ params }: AccountPageProps) {
         />
         <MetricsCard
           title="Total Likes"
-          value={stats?.totalLikes ?? 0}
+          value={stats.totalLikes}
           icon={<Heart className="h-4 w-4 text-muted-foreground" />}
         />
         <MetricsCard
           title="Total Comments"
-          value={stats?.totalComments ?? 0}
+          value={stats.totalComments}
           icon={<MessageCircle className="h-4 w-4 text-muted-foreground" />}
         />
         <MetricsCard
           title="Total Views"
-          value={stats?.totalViews ?? 0}
+          value={stats.totalViews}
           icon={<Eye className="h-4 w-4 text-muted-foreground" />}
         />
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <FollowerChart
-          data={followerHistory ?? []}
+          data={followerHistory}
           color={platformConfig.color}
         />
-        <RecentPosts posts={posts ?? []} />
+        <RecentPosts posts={posts} />
       </div>
     </div>
   );
