@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/drizzle";
-import { accounts, followerSnapshots, posts, engagements } from "@/lib/db/schema";
+import { accounts, followerSnapshots, posts } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(

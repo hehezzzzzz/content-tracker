@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/drizzle";
 import { accounts, followerSnapshots, posts } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { getChannelByHandle, getChannelVideos } from "@/lib/api/youtube";
 
 export async function GET() {
