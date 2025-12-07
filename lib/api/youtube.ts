@@ -191,3 +191,104 @@ export async function getChannelVideos(
     })
   );
 }
+
+export async function getAllChannelVideos(
+  channelId: string,
+  apiKey: string
+): Promise<YouTubeVideo[]> {
+  // First get the uploads playlist ID
+  const channelParams = new URLSearchParams({
+    part: "contentDetails",
+    id: channelId,
+    key: apiKey,
+  });
+
+  const channelRes = await fetch(`${YOUTUBE_API_BASE}/channels?${channelParams}`);
+  const channelData = await channelRes.json();
+
+  if (!channelRes.ok || !channelData.items?.length) {
+    return [];
+  }
+
+  const uploadsPlaylistId =
+    channelData.items[0].contentDetails.relatedPlaylists.uploads;
+
+  // Paginate through all videos in the uploads playlist
+  const allVideos: YouTubeVideo[] = [];
+  let nextPageToken: string | undefined;
+
+  do {
+    const playlistParams = new URLSearchParams({
+      part: "snippet",
+      playlistId: uploadsPlaylistId,
+      maxResults: "50", // Max allowed per request
+      key: apiKey,
+    });
+
+    if (nextPageToken) {
+      playlistParams.set("pageToken", nextPageToken);
+    }
+
+    const playlistRes = await fetch(
+      `${YOUTUBE_API_BASE}/playlistItems?${playlistParams}`
+    );
+    const playlistData = await playlistRes.json();
+
+    if (!playlistRes.ok || !playlistData.items?.length) {
+      break;
+    }
+
+    // Get video IDs from this page
+    const videoIds = playlistData.items.map(
+      (item: { snippet: { resourceId: { videoId: string } } }) =>
+        item.snippet.resourceId.videoId
+    );
+
+    // Get video statistics (can fetch up to 50 at once)
+    const videoParams = new URLSearchParams({
+      part: "snippet,statistics",
+      id: videoIds.join(","),
+      key: apiKey,
+    });
+
+    const videoRes = await fetch(`${YOUTUBE_API_BASE}/videos?${videoParams}`);
+    const videoData = await videoRes.json();
+
+    if (videoRes.ok && videoData.items?.length) {
+      const videos = videoData.items.map(
+        (video: {
+          id: string;
+          snippet: {
+            title: string;
+            description: string;
+            thumbnails: { medium?: { url: string }; default?: { url: string } };
+            publishedAt: string;
+          };
+          statistics: {
+            viewCount?: string;
+            likeCount?: string;
+            commentCount?: string;
+          };
+        }) => ({
+          id: video.id,
+          title: video.snippet.title,
+          description: video.snippet.description,
+          thumbnailUrl:
+            video.snippet.thumbnails.medium?.url ||
+            video.snippet.thumbnails.default?.url,
+          publishedAt: video.snippet.publishedAt,
+          stats: {
+            viewCount: parseInt(video.statistics.viewCount || "0", 10),
+            likeCount: parseInt(video.statistics.likeCount || "0", 10),
+            commentCount: parseInt(video.statistics.commentCount || "0", 10),
+          },
+        })
+      );
+      allVideos.push(...videos);
+    }
+
+    nextPageToken = playlistData.nextPageToken;
+  } while (nextPageToken);
+
+  return allVideos;
+}
